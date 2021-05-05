@@ -1,0 +1,6 @@
+galaxy
+*.o
+*.swp
+*.gif
+*.png
+*.txt
