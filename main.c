@@ -167,6 +167,11 @@ void render_galaxy(Galaxy * galaxy) {
     }
 
     EndDrawing();
+
+    if(IsKeyPressed(KEY_Q)) {
+      break;
+    }
+
   }
 
   CloseWindow();
