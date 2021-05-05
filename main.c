@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -18,94 +19,88 @@ const char* sector_names[] = {
   "Branch"
 };
 
+
 typedef struct Star {
   Vector2 pos;
   enum Sector sector;
 } Star;
+
+enum GalaxyType {
+  ELLIPTICAL = 0,
+  RING,
+  SPIRAL
+};
+
+typedef struct Galaxy {
+  enum GalaxyType type;
+  int stars_count;
+  Star ** stars;
+  int width;
+  int height;
+} Galaxy;
+
+Galaxy generate_elliptical_galaxy(int width, int height, int star_count);
 
 Star **random_stars(int max_radius, int size, enum Sector sector);
 void jiggle_star(Star * star, int size);
 
 double distance(Vector2 * v1, Vector2 * v2);
 
+void render_galaxy(Galaxy * galaxy);
+void write_galaxy_image(char * filename, Galaxy * galaxy);
+void write_galaxy_stars(char * filename, Galaxy * galaxy);
+
 void write_stars(FILE * file, Star ** stars, int size);
 
-int main(int argc, char** args) {
 
-  Vector2 centre;
-  centre.x = WIDTH / 2;
-  centre.y = HEIGHT / 2;
+Galaxy generate_elliptical_galaxy(int width, int height, int star_count) {
+  Galaxy galaxy;
+  galaxy.type = ELLIPTICAL;
+  galaxy.width = width;
+  galaxy.height = height;
+  galaxy.stars_count = star_count;
+  galaxy.stars = NULL;
 
-  int core_radius = 50;
-  int outer_core_radius = 100;
-  int branch_radius = 250;
+  int avg_dimension = width;
+  if(height < width) avg_dimension = height;
 
-  int core_stars_count = 500;
-  int outer_core_stars_count = 1000;
-  int branch_stars_count = 10000;
-
+  int core_radius = (avg_dimension / 10) / 2;
+  int core_stars_count = star_count / 10;
   Star **core_stars = random_stars(core_radius, core_stars_count, CORE);
+
+  int outer_core_radius = (avg_dimension / 3) / 2;
+  int outer_core_stars_count = star_count / 10;
   Star **outer_core_stars = random_stars(outer_core_radius, outer_core_stars_count, OUTER_CORE);
+
+  int branch_radius = (avg_dimension - 10) / 2;
+  int branch_stars_count = star_count - outer_core_stars_count - core_stars_count;
   Star **branch_stars = random_stars(branch_radius, branch_stars_count, BRANCH);
 
-  Image image = GenImageColor(WIDTH, HEIGHT, BLACK);
-  //ImageDrawCircle(&image, centre.x, centre.y, core_radius, RED);
-  //ImageDrawCircle(&image, centre.x, centre.y, outer_core_radius, YELLOW);
-  //ImageDrawCircle(&image, centre.x, centre.y, branch_radius, GREEN);
-
-  for(int i = 0; i < core_stars_count; i ++) {
-    Star * star = core_stars[i];
-    unsigned char val = GetRandomValue(100, 255);
-    Color color;
-    color.a = 255;
-    color.r = val;
-    color.g = val;
-    color.b = val;
-
-    int x = centre.x - star->pos.x;
-    int y = centre.y - star->pos.y;
-    ImageDrawPixel(&image, x, y, color);
-  }
-  for(int i = 0; i < outer_core_stars_count; i ++) {
-    Star * star = outer_core_stars[i];
-    unsigned char val = GetRandomValue(100, 255);
-    Color color;
-    color.a = 255;
-    color.r = val;
-    color.g = val;
-    color.b = val;
-    int x = centre.x - star->pos.x;
-    int y = centre.y - star->pos.y;
-    ImageDrawPixel(&image, x, y, color);
-  }
-  for(int i = 0; i < branch_stars_count; i ++) {
-    Star * star = branch_stars[i];
-    unsigned char val = GetRandomValue(100, 255);
-    Color color;
-    color.a = 255;
-    color.r = val;
-    color.g = val;
-    color.b = val;
-    int x = centre.x - star->pos.x;
-    int y = centre.y - star->pos.y;
-    ImageDrawPixel(&image, x, y, color);
-  }
-
-  if(!ExportImage(image, "test.png")) {
-    printf("Failed to create image");
-  }
-  
-  char * file_name = "test.txt";
-  FILE * file = fopen(file_name, "w+");
-  if(file == NULL) {
-    fprintf(stderr, "Problem writing to %s", file_name);
+  Star ** stars = malloc(sizeof(Star *) * star_count);
+  if(stars == NULL) {
+    fprintf(stderr, "Not enough memory to allocate %d stars", star_count);
     exit(1);
   }
 
-  write_stars(file, core_stars, core_stars_count);
-  write_stars(file, outer_core_stars, outer_core_stars_count);
-  write_stars(file, branch_stars, branch_stars_count);
-  fclose(file);
+  memcpy(stars, core_stars, core_stars_count * sizeof(Star *));
+  memcpy(stars + core_stars_count, outer_core_stars, outer_core_stars_count * sizeof(Star *));
+  memcpy(stars + core_stars_count + outer_core_stars_count, branch_stars, branch_stars_count * sizeof(Star *));
+
+  // tidy up
+  free(core_stars);
+  free(outer_core_stars);
+  free(branch_stars);
+  
+  galaxy.stars = stars;
+  return galaxy;
+}
+
+int main(int argc, char** args) {
+
+  Galaxy galaxy = generate_elliptical_galaxy(WIDTH, HEIGHT, 10000);
+  render_galaxy(&galaxy);
+  write_galaxy_image("test.png", &galaxy);
+  write_galaxy_stars("test.txt", &galaxy);
 
   return 0;
 }
@@ -146,6 +141,79 @@ double distance(Vector2 * v1, Vector2 * v2) {
   double a = pow(v2->x - v1->x, 2);
   double b = pow(v2->y - v1->y, 2);
   return sqrt(a + b);
+}
+
+void render_galaxy(Galaxy * galaxy) {
+  if(galaxy == NULL) return;
+  int width = galaxy->width;
+  int height = galaxy->height;
+
+  Vector2 centre;
+  centre.x = width / 2;
+  centre.y = height / 2;
+
+  InitWindow(width, height, "Galaxy");
+  SetTargetFPS(30);
+
+  while(!WindowShouldClose()) {
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    for(int i = 0; i < galaxy->stars_count; i ++) {
+      Star* star = galaxy->stars[i];
+      int x = centre.x - star->pos.x;
+      int y = centre.y - star->pos.y;
+      DrawPixel(x, y, WHITE);
+    }
+
+    EndDrawing();
+  }
+
+  CloseWindow();
+}
+
+void write_galaxy_image(char * filename, Galaxy * galaxy) {
+  if(filename == NULL || galaxy == NULL) return;
+
+  int width = galaxy->width;
+  int height = galaxy->height;
+
+  Image image = GenImageColor(width, height, BLACK);
+  
+  Vector2 centre;
+  centre.x = width / 2;
+  centre.y = height / 2;
+
+  for(int i = 0; i < galaxy->stars_count; i ++) {
+    Star * star = galaxy->stars[i];
+    unsigned char val = GetRandomValue(100, 255);
+    Color color;
+    color.a = 255;
+    color.r = val;
+    color.g = val;
+    color.b = val;
+
+    int x = centre.x - star->pos.x;
+    int y = centre.y - star->pos.y;
+    ImageDrawPixel(&image, x, y, color);
+  }
+
+  if(!ExportImage(image, filename)) {
+    fprintf(stderr, "Failed to create image %s", filename);
+    exit(1);
+  }
+  
+}
+
+void write_galaxy_stars(char * filename, Galaxy * galaxy) {
+  if(filename == NULL || galaxy == NULL) return;
+  FILE * file = fopen(filename, "w+");
+  if(file == NULL) {
+    fprintf(stderr, "Problem writing to %s", filename);
+    exit(1);
+  }
+  write_stars(file, galaxy->stars, galaxy->stars_count);
+  fclose(file);
 }
 
 void write_stars(FILE * file, Star** stars, int size) {
