@@ -51,6 +51,7 @@ void write_galaxy_image(char * filename, Galaxy * galaxy);
 void write_galaxy_stars(char * filename, Galaxy * galaxy);
 
 void write_stars(FILE * file, Star ** stars, int size);
+void write_star(FILE * file, Star * start);
 
 
 Galaxy generate_elliptical_galaxy(int width, int height, int star_count) {
@@ -107,7 +108,10 @@ int main(int argc, char** args) {
 
 Star **random_stars(int max_radius, int size, enum Sector sector) {
   Star **stars = malloc(sizeof(Star *) * size);
-  if(stars == NULL) exit(1);
+  if(stars == NULL){
+    fprintf(stderr, "Could not allocate memory for %d stars", size);
+    exit(1);
+  }
 
   Vector2 centre;
   centre.x = 0;
@@ -223,13 +227,18 @@ void write_galaxy_stars(char * filename, Galaxy * galaxy) {
 
 void write_stars(FILE * file, Star** stars, int size) {
   if(file == NULL) return;
-
+  fprintf(file, "%d\n", size);
   for(int i = 0; i < size; i ++) {
     Star *star = stars[i];
-    fprintf(
-        file, 
-        "%d, %d %s\n", 
-        (int) star->pos.x, (int) star->pos.y, sector_names[star->sector]
-    );
+    write_star(file, star);
   }
+}
+
+void write_star(FILE * file, Star * star) {
+  if(file == NULL || star == NULL) return;
+  fprintf(
+      file, 
+      "%d, %d %s\n", 
+      (int) star->pos.x, (int) star->pos.y, sector_names[star->sector]
+  );
 }
