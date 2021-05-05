@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -149,33 +150,63 @@ double distance(Vector2 * v1, Vector2 * v2) {
 
 void render_galaxy(Galaxy * galaxy) {
   if(galaxy == NULL) return;
+
   int width = galaxy->width;
   int height = galaxy->height;
+
+  bool rotate = false;
+  float rotation_speed = 0.1f;
 
   Vector2 centre;
   centre.x = width / 2;
   centre.y = height / 2;
 
+  Camera2D camera = {0};
+  camera.target.x = 0;
+  camera.target.y = 0;
+  camera.rotation = 0;
+  camera.zoom = 1.f;
+  camera.offset.x = centre.x;
+  camera.offset.y = centre.y;
+  
   InitWindow(width, height, "Galaxy");
   SetTargetFPS(30);
 
   while(!WindowShouldClose()) {
     BeginDrawing();
+    BeginMode2D(camera);
     ClearBackground(BLACK);
 
     for(int i = 0; i < galaxy->stars_count; i ++) {
       Star* star = galaxy->stars[i];
-      int x = centre.x - star->pos.x;
-      int y = centre.y - star->pos.y;
+      int x = star->pos.x;
+      int y = star->pos.y;
       DrawPixel(x, y, WHITE);
     }
 
+    EndMode2D();
     EndDrawing();
 
     if(IsKeyPressed(KEY_Q)) {
       break;
     }
+    if(IsKeyPressed(KEY_R)) {
+      rotate = !rotate;
+    }
+    if(IsKeyDown(KEY_T)) {
+      rotation_speed += 0.1f;
+      if(rotation_speed > 360.f) rotation_speed = 360.f;
+    }
+    if(IsKeyDown(KEY_E)) {
+      rotation_speed -= 0.1f;
+      if(rotation_speed < 0.1f) rotation_speed = 0.1f;
+    }
 
+    if(rotate) {
+      camera.rotation += rotation_speed;
+      while(camera.rotation >= 360.f)
+        camera.rotation = camera.rotation - 360.f;
+    }
   }
 
   CloseWindow();
