@@ -169,7 +169,8 @@ Galaxy generate_spiral_galaxy(
 
   for(int branch = 0; branch < branches; branch ++) {
     float angle = angle_per_branch * branch;
-    Star ** branch_stars = random_branch_stars(min_dim / 2, arm_width, stars_per_branch, angle);
+    int branch_radius = (min_dim - GetRandomValue(0, min_dim / 4)) / 2;
+    Star ** branch_stars = random_branch_stars(branch_radius, arm_width, stars_per_branch, angle);
     //spin_stars(branch_stars, stars_per_branch, centre, spin_factor);
 
     // merge into single branch stars array
@@ -220,7 +221,7 @@ Galaxy generate_spiral_galaxy(
 int main(int argc, char** args) {
 
   //Galaxy galaxy = generate_elliptical_galaxy(WIDTH, HEIGHT, 10000);
-  Galaxy galaxy = generate_spiral_galaxy(WIDTH, HEIGHT, 4, 10000, 0.01f);
+  Galaxy galaxy = generate_spiral_galaxy(WIDTH, HEIGHT, 6, 10000, 0.01f);
   render_galaxy(&galaxy);
   write_galaxy_image("test.png", &galaxy);
   write_galaxy_stars("test.txt", &galaxy);
