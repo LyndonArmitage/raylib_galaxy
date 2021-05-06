@@ -497,13 +497,15 @@ void render_galaxy(Galaxy * galaxy) {
     }
     if(IsKeyDown(KEY_E)) {
       rotation_speed -= 0.1f;
-      if(rotation_speed < 0.1f) rotation_speed = 0.1f;
+      if(rotation_speed < -360.f) rotation_speed = -360.f;
     }
 
     if(rotate) {
       camera.rotation += rotation_speed;
       while(camera.rotation >= 360.f)
         camera.rotation = camera.rotation - 360.f;
+      while(camera.rotation <= -360.f)
+        camera.rotation = camera.rotation + 360.f;
     }
   }
 
