@@ -8,12 +8,18 @@
 #define WIDTH 800
 #define HEIGHT 600
 
+/**
+ * The sector a star was generated in
+ */
 enum Sector {
   CORE = 0,
   OUTER_CORE,
   BRANCH
 };
 
+/**
+ * Matching names for Sector
+ */
 const char* sector_names[] = {
   "Core",
   "Outer_Core",
@@ -21,27 +27,94 @@ const char* sector_names[] = {
 };
 
 
+/**
+ * Struct holding data related to a Star
+ */
 typedef struct Star {
+  /**
+   * The position of the star
+   */
   Vector2 pos;
+  
+  /**
+   * The sector the star was generated in
+   */
   enum Sector sector;
 } Star;
 
+/**
+ * The Galaxy type
+ */
 enum GalaxyType {
+  
+  /**
+   * An Elliptical galaxy is one which is mostly blob shaped
+   */
   ELLIPTICAL = 0,
+  /**
+   * A Ring galaxy is one that is formed from concentric rings
+   */
   RING,
+
+  /**
+   * A Spiral galaxy is a common form of galaxy where stars have started to form
+   * into branched spirals
+   */
   SPIRAL
 };
 
+/**
+ * Struct holding Galaxy data
+ */
 typedef struct Galaxy {
+  /**
+   * The Galaxy type
+   */
   enum GalaxyType type;
+  
+  /**
+   * The count of stars in this galaxy, should be used with the stars variable.
+   */
   int stars_count;
+
+  /**
+   * An array of stars in the galaxy
+   */
   Star ** stars;
+  
+  /**
+   * The general width of the galaxy
+   */
   int width;
+
+  /**
+   * The General height of the galaxy
+   */
   int height;
 } Galaxy;
 
+/**
+ * Generate an elliptical galaxy.
+ *
+ * @param width The width of the galaxy
+ * @param height The height of the galaxy
+ * @param star_count The count of stars in the galaxy
+ *
+ * @return A generated Galaxy
+ */
 Galaxy generate_elliptical_galaxy(int width, int height, int star_count);
 
+/**
+ * Generate a spiral galaxy.
+ * 
+ * @param width The width of the galaxy
+ * @param height The height of the galaxy
+ * @param branches The count of branches in this spiral galaxy
+ * @param star_count The count of stars in the galaxy
+ * @param spin_factor A factor controlling how spun the branches are
+ *
+ * @return A generated Galaxy
+ */
 Galaxy generate_spiral_galaxy(
     int width, 
     int height, 
@@ -50,14 +123,55 @@ Galaxy generate_spiral_galaxy(
     float spin_factor
 );
 
+/**
+ * Generate a random arrangement of stars within a radius
+ *
+ * @param max_radius The maximum radius stars can be from the origin
+ * @param size The amount of stars to generate
+ * @param sector The sector to label these stars as
+ * @return An array of stars
+ */
 Star **random_stars(int max_radius, int size, enum Sector sector);
-Star **random_branch_stars(int max_radius, int max_width, int count, float angle);
 
+/**
+ * Generate a random branch of stars
+ *
+ * @param max_radius The maximum radius stars can be from the origin
+ * @param max_width The max width stars can be from each other
+ * @param count The amount of stars to generate
+ * @param angle The angle to rotate the branch at in Radians
+ * @param jiggle An amount of jiggle to apply to the stars after placing them,
+ *               jiggles stars can be outside of the radius and width
+ * @return An array of stars
+ */
+Star **random_branch_stars(int max_radius, int max_width, int count, float angle, int jiggle);
+
+/**
+ * Jiggle a star about a size
+ *
+ * @param star The star to jiggle
+ * @param size The amount to jiggle by
+ */
 void jiggle_star(Star * star, int size);
+
+/**
+ * Spin a group of stars based on some centre point
+ */
 void spin_stars(Star ** stars, int count, Vector2 centre, float spin_factor);
+
+/**
+ * Spin a stat based on a centre point
+ */
 void spin_star(Star * star, Vector2 centre, float spin_factor);
 
+/**
+ * Get the distance between 2 points
+ */
 double distance(Vector2 * v1, Vector2 * v2);
+
+/**
+ * Rotate a point around an origin (usign radians)
+ */
 void rotate_about(Vector2 * point, Vector2 * origin, float angle);
 
 void render_galaxy(Galaxy * galaxy);
@@ -170,8 +284,13 @@ Galaxy generate_spiral_galaxy(
   for(int branch = 0; branch < branches; branch ++) {
     float angle = angle_per_branch * branch;
     int branch_radius = (min_dim - GetRandomValue(0, min_dim / 4)) / 2;
-    Star ** branch_stars = random_branch_stars(branch_radius, arm_width, stars_per_branch, angle);
-    //spin_stars(branch_stars, stars_per_branch, centre, spin_factor);
+    Star ** branch_stars = random_branch_stars(
+        branch_radius, 
+        arm_width, 
+        stars_per_branch, 
+        angle, 
+        50
+    );
 
     // merge into single branch stars array
     memcpy(
@@ -255,7 +374,7 @@ Star **random_stars(int max_radius, int size, enum Sector sector) {
   return stars;
 }
 
-Star **random_branch_stars(int max_radius, int max_width, int count, float angle) {
+Star **random_branch_stars(int max_radius, int max_width, int count, float angle, int jiggle) {
 
   Star **stars = malloc(sizeof(Star *) * count);
   if(stars == NULL){
@@ -276,7 +395,7 @@ Star **random_branch_stars(int max_radius, int max_width, int count, float angle
       star->pos.x = GetRandomValue(-max_width, max_width);
       star->pos.y = GetRandomValue(0, max_radius);
     } while(distance(&centre, &star->pos) > max_radius);
-    jiggle_star(star, 10);
+    jiggle_star(star, jiggle);
     rotate_about(&star->pos, &centre, angle);
   }
   return stars;
