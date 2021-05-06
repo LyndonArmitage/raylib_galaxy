@@ -30,6 +30,11 @@ typedef struct Star {
    * The sector the star was generated in
    */
   enum Sector sector;
+
+  /**
+   * How bright a star is: between 0 and 1
+   */
+  float luminosity;
 } Star;
 
 /**
@@ -353,6 +358,7 @@ Star **random_stars(int max_radius, int size, enum Sector sector) {
     Star *star = malloc(sizeof(Star));
     if(star == NULL) exit(1);
     star->sector = sector;
+    star->luminosity = (float)rand()/(float)(RAND_MAX);
     stars[i] = star;
     do {
       star->pos.x = GetRandomValue(-max_radius, max_radius);
@@ -380,6 +386,7 @@ Star **random_branch_stars(int max_radius, int max_width, int count, float angle
     Star *star = malloc(sizeof(Star));
     if(star == NULL) exit(1);
     star->sector = BRANCH;
+    star->luminosity = (float)rand()/(float)(RAND_MAX);
     stars[i] = star;
     do {
       star->pos.x = GetRandomValue(-max_width, max_width);
@@ -456,6 +463,12 @@ void render_galaxy(Galaxy * galaxy) {
   InitWindow(width, height, "Galaxy");
   SetTargetFPS(30);
 
+  Color star_colour;
+  star_colour.a = 255;
+  star_colour.r = 255;
+  star_colour.g = 255;
+  star_colour.b = 255;
+
   while(!WindowShouldClose()) {
     BeginDrawing();
     BeginMode2D(camera);
@@ -465,7 +478,8 @@ void render_galaxy(Galaxy * galaxy) {
       Star* star = galaxy->stars[i];
       int x = star->pos.x;
       int y = star->pos.y;
-      DrawPixel(x, y, WHITE);
+      star_colour.a = 255 * star->luminosity;
+      DrawPixel(x, y, star_colour);
     }
 
     EndMode2D();
@@ -508,18 +522,20 @@ void write_galaxy_image(char * filename, Galaxy * galaxy) {
   centre.x = width / 2;
   centre.y = height / 2;
 
+  Color star_colour;
+  star_colour.a = 255;
+  star_colour.r = 255;
+  star_colour.g = 255;
+  star_colour.b = 255;
+
   for(int i = 0; i < galaxy->stars_count; i ++) {
     Star * star = galaxy->stars[i];
     unsigned char val = GetRandomValue(100, 255);
-    Color color;
-    color.a = 255;
-    color.r = val;
-    color.g = val;
-    color.b = val;
+    star_colour.a = 255 * star->luminosity;
 
     int x = centre.x - star->pos.x;
     int y = centre.y - star->pos.y;
-    ImageDrawPixel(&image, x, y, color);
+    ImageDrawPixel(&image, x, y, star_colour);
   }
 
   if(!ExportImage(image, filename)) {
@@ -553,7 +569,7 @@ void write_star(FILE * file, Star * star) {
   if(file == NULL || star == NULL) return;
   fprintf(
       file, 
-      "%d, %d %d\n", 
-      (int) star->pos.x, (int) star->pos.y, star->sector
+      "%d, %d %f %d\n", 
+      (int) star->pos.x, (int) star->pos.y, star->luminosity, star->sector
   );
 }
