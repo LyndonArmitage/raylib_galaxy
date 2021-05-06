@@ -18,16 +18,6 @@ enum Sector {
 };
 
 /**
- * Matching names for Sector
- */
-const char* sector_names[] = {
-  "Core",
-  "Outer_Core",
-  "Branch"
-};
-
-
-/**
  * Struct holding data related to a Star
  */
 typedef struct Star {
@@ -563,7 +553,7 @@ void write_star(FILE * file, Star * star) {
   if(file == NULL || star == NULL) return;
   fprintf(
       file, 
-      "%d, %d %s\n", 
-      (int) star->pos.x, (int) star->pos.y, sector_names[star->sector]
+      "%d, %d %d\n", 
+      (int) star->pos.x, (int) star->pos.y, star->sector
   );
 }
