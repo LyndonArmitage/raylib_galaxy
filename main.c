@@ -42,10 +42,23 @@ typedef struct Galaxy {
 
 Galaxy generate_elliptical_galaxy(int width, int height, int star_count);
 
+Galaxy generate_spiral_galaxy(
+    int width, 
+    int height, 
+    int branches, 
+    int star_count, 
+    float spin_factor
+);
+
 Star **random_stars(int max_radius, int size, enum Sector sector);
+Star **random_branch_stars(int max_radius, int max_width, int count, float angle);
+
 void jiggle_star(Star * star, int size);
+void spin_stars(Star ** stars, int count, Vector2 centre, float spin_factor);
+void spin_star(Star * star, Vector2 centre, float spin_factor);
 
 double distance(Vector2 * v1, Vector2 * v2);
+void rotate_about(Vector2 * point, Vector2 * origin, float angle);
 
 void render_galaxy(Galaxy * galaxy);
 void write_galaxy_image(char * filename, Galaxy * galaxy);
@@ -84,9 +97,21 @@ Galaxy generate_elliptical_galaxy(int width, int height, int star_count) {
     exit(1);
   }
 
-  memcpy(stars, core_stars, core_stars_count * sizeof(Star *));
-  memcpy(stars + core_stars_count, outer_core_stars, outer_core_stars_count * sizeof(Star *));
-  memcpy(stars + core_stars_count + outer_core_stars_count, branch_stars, branch_stars_count * sizeof(Star *));
+  memcpy(
+      stars, 
+      core_stars, 
+      core_stars_count * sizeof(Star *)
+  );
+  memcpy(
+      stars + core_stars_count, 
+      outer_core_stars, 
+      outer_core_stars_count * sizeof(Star *)
+  );
+  memcpy(
+      stars + core_stars_count + outer_core_stars_count,
+      branch_stars, 
+      branch_stars_count * sizeof(Star *)
+  );
 
   // tidy up
   free(core_stars);
@@ -97,9 +122,105 @@ Galaxy generate_elliptical_galaxy(int width, int height, int star_count) {
   return galaxy;
 }
 
+Galaxy generate_spiral_galaxy(
+    int width, 
+    int height, 
+    int branches, 
+    int star_count,
+    float spin_factor
+) {
+  if(branches < 1) {
+    fprintf(stderr, "branches must be a positive number, was %d", branches);
+    exit(1);
+  }
+  Galaxy galaxy;
+  galaxy.type = SPIRAL;
+  galaxy.width = width;
+  galaxy.height = height;
+  galaxy.stars_count = star_count;
+  galaxy.stars = NULL;
+
+  int min_dim = height;
+  if(height < width) min_dim = height;
+
+  int core_radius = (min_dim / 10) / 2;
+  int core_stars_count = star_count / 10;
+  Star **core_stars = random_stars(core_radius, core_stars_count, CORE);
+
+  int outer_core_radius = (min_dim / 5) / 2;
+  int outer_core_stars_count = star_count / 30;
+  Star **outer_core_stars = random_stars(outer_core_radius, outer_core_stars_count, OUTER_CORE);
+  
+  int total_branch_stars = star_count - core_stars_count - outer_core_stars_count;
+  int stars_per_branch = total_branch_stars / branches;
+  total_branch_stars = stars_per_branch * branches;
+  float angle_per_branch = (PI * 2.f) / branches;
+  int arm_width = min_dim / branches / 3;
+
+  Star ** all_branch_stars = malloc(sizeof(Star *) * total_branch_stars);
+  if(all_branch_stars == NULL) {
+    fprintf(stderr, "Not enough memory for branches");
+    exit(1);
+  }
+  
+  Vector2 centre;
+  centre.x = 0;
+  centre.y = 0;
+
+  for(int branch = 0; branch < branches; branch ++) {
+    float angle = angle_per_branch * branch;
+    Star ** branch_stars = random_branch_stars(min_dim / 2, arm_width, stars_per_branch, angle);
+    //spin_stars(branch_stars, stars_per_branch, centre, spin_factor);
+
+    // merge into single branch stars array
+    memcpy(
+        all_branch_stars + (branch * stars_per_branch), 
+        branch_stars, 
+        stars_per_branch * sizeof(Star *)
+    );
+    free(branch_stars);
+  }
+
+  int total_stars = core_stars_count + outer_core_stars_count + total_branch_stars;
+
+  Star ** stars = malloc(sizeof(Star *) * total_stars);
+  if(stars == NULL) {
+    fprintf(stderr, "Not enough memory to allocate %d stars", total_stars);
+    exit(1);
+  }
+
+  memcpy(
+      stars, 
+      core_stars, 
+      core_stars_count * sizeof(Star *)
+  );
+  memcpy(
+      stars + core_stars_count, 
+      outer_core_stars, 
+      outer_core_stars_count * sizeof(Star *)
+  );
+  memcpy(
+      stars + core_stars_count + outer_core_stars_count, 
+      all_branch_stars, 
+      total_branch_stars * sizeof(Star *)
+  );
+
+  // tidy up
+  free(core_stars);
+  free(outer_core_stars);
+  free(all_branch_stars);
+  
+  spin_stars(stars, total_stars, centre, spin_factor);
+  
+  galaxy.stars = stars;
+  galaxy.stars_count = total_stars;
+  return galaxy;
+}
+
 int main(int argc, char** args) {
 
-  Galaxy galaxy = generate_elliptical_galaxy(WIDTH, HEIGHT, 10000);
+  //Galaxy galaxy = generate_elliptical_galaxy(WIDTH, HEIGHT, 10000);
+  Galaxy galaxy = generate_spiral_galaxy(WIDTH, HEIGHT, 4, 10000, 0.01f);
   render_galaxy(&galaxy);
   write_galaxy_image("test.png", &galaxy);
   write_galaxy_stars("test.txt", &galaxy);
@@ -133,6 +254,33 @@ Star **random_stars(int max_radius, int size, enum Sector sector) {
   return stars;
 }
 
+Star **random_branch_stars(int max_radius, int max_width, int count, float angle) {
+
+  Star **stars = malloc(sizeof(Star *) * count);
+  if(stars == NULL){
+    fprintf(stderr, "Could not allocate memory for %d stars", count);
+    exit(1);
+  }
+
+  Vector2 centre;
+  centre.x = 0;
+  centre.y = 0;
+  
+  for(int i = 0; i < count; i ++) {
+    Star *star = malloc(sizeof(Star));
+    if(star == NULL) exit(1);
+    star->sector = BRANCH;
+    stars[i] = star;
+    do {
+      star->pos.x = GetRandomValue(-max_width, max_width);
+      star->pos.y = GetRandomValue(0, max_radius);
+    } while(distance(&centre, &star->pos) > max_radius);
+    jiggle_star(star, 10);
+    rotate_about(&star->pos, &centre, angle);
+  }
+  return stars;
+}
+
 void jiggle_star(Star * star, int size) {
   if(star == NULL) return;
   int x = star->pos.x;
@@ -141,11 +289,37 @@ void jiggle_star(Star * star, int size) {
   star->pos.y = GetRandomValue(y - size, y + size);
 }
 
+void spin_stars(Star ** stars, int count, Vector2 centre, float spin_factor) {
+  if(stars == NULL) return;
+  for(int i = 0; i < count; i ++) {
+    spin_star(stars[i], centre, spin_factor);
+  }
+}
+
+void spin_star(Star * star, Vector2 centre, float spin_factor) {
+  if(star == NULL) return;
+  double dist = distance(&star->pos, &centre);
+  float angle = dist * spin_factor;
+  rotate_about(&star->pos, &centre, angle);
+}
+
 double distance(Vector2 * v1, Vector2 * v2) {
   if(v1 == NULL || v2 == NULL) return 0;
   double a = pow(v2->x - v1->x, 2);
   double b = pow(v2->y - v1->y, 2);
   return sqrt(a + b);
+}
+
+void rotate_about(Vector2 * point, Vector2 * origin, float angle) {
+  if(point == NULL || origin == NULL) return;
+  float s = sin(angle);
+  float c = cos(angle);
+  point->x -= origin->x;
+  point->y -= origin->y;
+  float new_x = point->x * c - point->y * s;
+  float new_y = point->x * s + point->y * c;
+  point->x = new_x + origin->x;
+  point->y = new_y + origin->y;
 }
 
 void render_galaxy(Galaxy * galaxy) {
