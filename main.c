@@ -532,7 +532,6 @@ void write_galaxy_image(char * filename, Galaxy * galaxy) {
 
   for(int i = 0; i < galaxy->stars_count; i ++) {
     Star * star = galaxy->stars[i];
-    unsigned char val = GetRandomValue(100, 255);
     star_colour.a = 255 * star->luminosity;
 
     int x = centre.x - star->pos.x;
